@@ -138,6 +138,14 @@ service VolumeServer {
     rpc Ping (PingRequest) returns (PingResponse) {
     }
 
+    // Observer replication - sync updates from leader to observer
+    rpc SyncObserverShard (SyncObserverShardRequest) returns (SyncObserverShardResponse) {
+    }
+    rpc ApplyShardUpdates (ApplyShardUpdatesRequest) returns (ApplyShardUpdatesResponse) {
+    }
+    rpc GetObserverStatus (GetObserverStatusRequest) returns (GetObserverStatusResponse) {
+    }
+
 }
 
 //////////////////////////////////////////////////
@@ -757,4 +765,65 @@ message PingResponse {
     int64 start_time_ns = 1;
     int64 remote_time_ns = 2;
     int64 stop_time_ns = 3;
+}
+
+//
+// Observer replication messages
+//
+
+// SyncObserverShardRequest requests incremental sync from leader to observer
+message SyncObserverShardRequest {
+    uint32 volume_id = 1;
+    uint64 last_sequence = 2;      // Last known sequence from observer
+    string observer_id = 3;        // Observer server identifier
+}
+
+// SyncObserverShardResponse contains incremental updates from leader
+message SyncObserverShardResponse {
+    uint32 volume_id = 1;
+    uint64 last_sequence = 2;      // Latest sequence number
+    repeated ShardUpdate updates = 3; // Incremental updates
+    string error = 4;
+}
+
+// ShardUpdate represents a single update to apply to observer
+message ShardUpdate {
+    uint64 sequence = 1;           // Sequence number for ordering
+    uint64 needle_id = 2;          // Needle identifier
+    int64 offset = 3;              // Offset in volume file
+    int32 size = 4;                // Size of data
+    bytes data = 5;                // Needle data
+    int64 timestamp_ns = 6;        // When this was written
+    bool is_delete = 7;            // Whether this is a deletion
+}
+
+// ApplyShardUpdatesRequest sends batched updates to observer
+message ApplyShardUpdatesRequest {
+    uint32 volume_id = 1;
+    repeated ShardUpdate updates = 2;
+    uint64 last_sequence = 3;      // Latest sequence after these updates
+}
+
+// ApplyShardUpdatesResponse confirms updates were applied
+message ApplyShardUpdatesResponse {
+    uint64 applied_sequence = 1;   // Last successfully applied sequence
+    string error = 2;
+}
+
+// GetObserverStatusRequest gets status of observer for a volume
+message GetObserverStatusRequest {
+    uint32 volume_id = 1;
+    string observer_id = 2;
+}
+
+// GetObserverStatusResponse returns observer status
+message GetObserverStatusResponse {
+    uint32 volume_id = 1;
+    string observer_id = 2;
+    string leader_id = 3;
+    int64 last_sync_ns = 4;
+    int64 lag_seconds = 5;
+    bool is_healthy = 6;
+    string role = 7;               // "observer" or "sync_follower"
+    string error = 8;
 }

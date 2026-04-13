@@ -486,3 +486,88 @@ message RaftLeadershipTransferResponse {
 
 message VolumeGrowResponse {
 }
+
+//
+// Observer-related messages
+//
+
+// ReplicaRole defines the role of a volume replica
+enum ReplicaRole {
+  REPLICA_ROLE_LEADER = 0;
+  REPLICA_ROLE_SYNC_FOLLOWER = 1;
+  REPLICA_ROLE_OBSERVER = 2;
+}
+
+// ObserverInfo contains information about an observer replica
+message ObserverInfo {
+  string observer_server = 1;      // Observer server address
+  string leader_server = 2;        // Leader/primary server address
+  int64 last_sync_ns = 3;          // Last successful sync timestamp
+  int64 lag_seconds = 4;           // Current lag behind leader
+  bool is_healthy = 5;             // Whether observer is within acceptable lag
+  string last_error = 6;           // Last error if any
+  ReplicaRole role = 7;            // Current role of this replica
+}
+
+// AssignObserverRequest requests assignment of observer replicas
+message AssignObserverRequest {
+  uint32 volume_id = 1;            // Volume to assign observers for
+  string leader_server = 2;        // Leader server address
+  repeated string sync_replicas = 3; // Sync replica server addresses
+  int32 observer_count = 4;        // Number of observers to assign
+  repeated string available_servers = 5; // Available servers for observer placement
+}
+
+// AssignObserverResponse contains the assigned observer servers
+message AssignObserverResponse {
+  uint32 volume_id = 1;
+  repeated string observer_servers = 2; // Assigned observer server addresses
+  string error = 3;
+}
+
+// ObserverStatusRequest gets status of observers for a volume
+message ObserverStatusRequest {
+  uint32 volume_id = 1;
+}
+
+// ObserverStatusResponse contains observer status information
+message ObserverStatusResponse {
+  uint32 volume_id = 1;
+  repeated ObserverInfo observers = 2;
+  int32 sync_replica_count = 3;
+  int32 observer_count = 4;
+  string error = 5;
+}
+
+// PromoteObserverRequest promotes an observer to a sync replica
+message PromoteObserverRequest {
+  uint32 volume_id = 1;
+  string observer_server = 2;
+  bool force = 3; // Force promotion even if lag is high
+}
+
+// PromoteObserverResponse confirms the promotion
+message PromoteObserverResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+// DemoteReplicaRequest demotes a sync replica to an observer
+message DemoteReplicaRequest {
+  uint32 volume_id = 1;
+  string replica_server = 2;
+}
+
+// DemoteReplicaResponse confirms the demotion
+message DemoteReplicaResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+// ExtendedReplicaPlacement represents replication config with observer support
+message ExtendedReplicaPlacement {
+  int32 diff_data_center_count = 1;  // Sync replicas in different DCs
+  int32 diff_rack_count = 2;         // Sync replicas in different racks
+  int32 same_rack_count = 3;         // Sync replicas in same rack
+  int32 observer_count = 4;          // Number of observer replicas
+}
